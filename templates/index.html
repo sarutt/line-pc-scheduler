@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LINE PC Scheduler</title>
+<style>
+  :root{
+    --bg:#f4f5f7; --card:#ffffff; --text:#1c2024; --muted:#6b7280;
+    --border:#e3e6ea; --accent:#06c755; --accent-d:#04a344;
+    --danger:#e5484d; --warn:#ffb020; --shadow:0 1px 3px rgba(0,0,0,.08);
+    --mono:ui-monospace,"Cascadia Code",Consolas,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{--bg:#15171a;--card:#1e2126;--text:#e7e9ea;--muted:#9aa2ad;
+      --border:#2c313a;--shadow:0 1px 3px rgba(0,0,0,.4);}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:"Segoe UI",Tahoma,system-ui,sans-serif;font-size:14px;line-height:1.5}
+  .wrap{max-width:1500px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:20px;margin:0;display:flex;align-items:center;gap:10px}
+  h2{font-size:15px;margin:0 0 12px;font-weight:600}
+  .logo{width:26px;height:26px;background:var(--accent);border-radius:7px;
+    display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px}
+  .topbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:16px}
+  .spacer{flex:1}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;
+    font-weight:600;font-size:13px}
+  .pill .dot{width:9px;height:9px;border-radius:50%}
+  .pill.on{background:rgba(6,199,85,.15);color:var(--accent-d)} .pill.on .dot{background:var(--accent)}
+  .pill.off{background:rgba(229,72,77,.13);color:var(--danger)} .pill.off .dot{background:var(--danger)}
+  button{font:inherit;font-weight:600;border:1px solid var(--border);background:var(--card);
+    color:var(--text);padding:8px 14px;border-radius:8px;cursor:pointer;transition:.15s}
+  button:hover{border-color:var(--muted)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary:hover{background:var(--accent-d)}
+  button.danger{background:var(--danger);border-color:var(--danger);color:#fff}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .warn{background:rgba(255,176,32,.12);border:1px solid rgba(255,176,32,.4);
+    color:var(--text);padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:13px}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .cols{display:grid;grid-template-columns:1.25fr 1fr;gap:16px;align-items:start}
+  .cols>*{min-width:0}   /* ให้คอลัมน์ย่อได้ตามสัดส่วน แล้วให้ตารางเลื่อนแนวนอนเอง */
+  @media (max-width:860px){.grid{grid-template-columns:repeat(2,1fr)}.cols{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;
+    padding:16px;box-shadow:var(--shadow)}
+  /* การ์ดขวา (log + ประวัติ) ยืดลงถึงล่างสุดของจอ */
+  .card.side{position:sticky;top:16px;max-height:calc(100vh - 32px);
+    display:flex;flex-direction:column;overflow:hidden}
+  .stat .lbl{color:var(--muted);font-size:12px;margin-bottom:4px}
+  .stat .val{font-size:20px;font-weight:700}
+  .stat .val.sm{font-size:15px}
+  label{display:block;color:var(--muted);font-size:12.5px;margin:12px 0 5px}
+  input,select,textarea{width:100%;background:var(--bg);color:var(--text);
+    border:1px solid var(--border);border-radius:7px;padding:9px 11px;font:inherit;font-size:14px}
+  textarea{resize:vertical;min-height:56px}
+  .row{display:flex;gap:8px}.row>*{flex:1}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:12px}
+  .msg-tbl td{padding:4px;vertical-align:top}
+  .msg-tbl input{padding:7px 8px;font-size:13px}
+  .msg-tbl input[data-k="time"],.msg-tbl input[data-k="start"],.msg-tbl input[data-k="end"]{min-width:82px}
+  .msg-tbl input[data-k="every_minutes"]{min-width:72px}
+  .msg-tbl input[data-k="days"]{min-width:92px}
+  .msg-tbl input[data-k="targets"]{min-width:170px}
+  .msg-tbl select{padding:7px 5px;font-size:13px;width:100%;min-width:155px}
+  .msg-tbl textarea{padding:7px 9px;font-size:13px;min-height:60px}
+  .msg-tbl textarea[data-k="image"]{min-height:110px;min-width:280px;font-family:var(--mono)}
+  .msg-tbl textarea[data-k="text"]{min-height:110px;min-width:180px}
+  .browse{margin-top:4px;padding:5px 8px;font-size:12px;font-weight:600;width:100%}
+  .del{color:var(--danger);border-color:transparent;background:transparent;padding:4px 8px}
+  .log{background:#0d0f12;color:#c7d0d9;font-family:var(--mono);font-size:12px;
+    border-radius:8px;padding:10px;height:220px;flex:none;overflow:auto;white-space:pre-wrap;line-height:1.45}
+  .badge{padding:1px 8px;border-radius:5px;font-size:11px;font-weight:600}
+  .badge.success{background:rgba(6,199,85,.16);color:var(--accent-d)}
+  .badge.error{background:rgba(229,72,77,.16);color:var(--danger)}
+  .badge.stopped{background:rgba(255,176,32,.18);color:var(--warn)}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    background:var(--text);color:var(--bg);padding:10px 18px;border-radius:8px;
+    font-weight:600;opacity:0;pointer-events:none;transition:.25s;box-shadow:var(--shadow)}
+  .toast.show{opacity:1}
+  .muted{color:var(--muted)}
+  .flex{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  hr{border:none;border-top:1px solid var(--border);margin:14px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <h1><span class="logo">L</span> LINE PC Scheduler</h1>
+    <span id="pill" class="pill off"><span class="dot"></span><span id="pillTxt">หยุดอยู่</span></span>
+    <div class="spacer"></div>
+    <button id="btnStart" class="primary" onclick="ctl('start')">▶ เริ่ม</button>
+    <button id="btnStop" class="danger" onclick="ctl('stop')">■ หยุด</button>
+  </div>
+
+  <div class="warn">
+    ⚠️ วิธีนี้เป็น automation แอป LINE ซึ่ง <b>ผิด ToS ของ LINE</b> และมีความเสี่ยงถูกระงับบัญชี
+    — ระหว่างส่ง สคริปต์จะยึดเมาส์/คีย์บอร์ดชั่วขณะ อย่าเพิ่งใช้เครื่องตอนนั้น
+  </div>
+
+  <!-- สถิติ -->
+  <div class="grid">
+    <div class="card stat"><div class="lbl">สถานะ</div><div id="sState" class="val">—</div></div>
+    <div class="card stat"><div class="lbl">รอบส่งถัดไป</div><div id="sNext" class="val sm">—</div></div>
+    <div class="card stat"><div class="lbl">ส่งสำเร็จวันนี้</div><div id="sToday" class="val">0</div></div>
+    <div class="card stat"><div class="lbl">ผลล่าสุด</div><div id="sLast" class="val sm">—</div></div>
+  </div>
+
+  <div class="cols">
+    <!-- ซ้าย: ตั้งค่า -->
+    <div class="card">
+      <h2>⚙️ ตั้งค่า</h2>
+
+      <label>Timezone</label>
+      <input id="tz" value="Asia/Bangkok">
+
+      <div class="row">
+        <div><label>ชื่อกลุ่มเป้าหมาย (target_name — ยืนยันก่อนส่ง)</label><input id="targetName" placeholder="เว้นว่าง=ไม่ตรวจ"></div>
+        <div><label>ชื่อหน้าต่าง LINE</label><input id="winTitle" value="LINE"></div>
+      </div>
+      <label>พาธ LINE.exe (เผื่อเปิดเอง)</label>
+      <input id="exePath">
+
+      <label>หน้าต่าง — ตำแหน่ง/ขนาด (x, y, กว้าง, สูง)</label>
+      <div class="row">
+        <input id="wx" type="number"><input id="wy" type="number">
+        <input id="ww" type="number"><input id="wh" type="number">
+      </div>
+
+      <div class="row">
+        <div><label>พิกัดกลุ่ม chat_row (x, y)</label>
+          <div class="row"><input id="crx" type="number"><input id="cry" type="number"></div></div>
+        <div><label>พิกัดช่องพิมพ์ message_box (x, y)</label>
+          <div class="row"><input id="mbx" type="number"><input id="mby" type="number"></div></div>
+      </div>
+
+      <label>หน่วงเวลา (วินาที): launch / focus / open_chat / click_box / paste</label>
+      <div class="row">
+        <input id="dLaunch" type="number" step="0.1"><input id="dFocus" type="number" step="0.1">
+        <input id="dOpen" type="number" step="0.1"><input id="dBox" type="number" step="0.1">
+        <input id="dPaste" type="number" step="0.1">
+      </div>
+
+      <hr>
+      <div class="flex" style="justify-content:space-between">
+        <h2 style="margin:0">👥 กลุ่มเป้าหมาย (ส่งได้หลายกลุ่ม)</h2>
+        <button onclick="addTarget()">+ เพิ่มกลุ่ม</button>
+      </div>
+      <p class="muted" style="margin:6px 0">ปักหมุดกลุ่มไว้บนสุดเรียงกัน แล้วใส่ <b>ชื่อกลุ่ม</b> + <b>พิกัดแถว [x, y]</b> (ใช้ <code>calibrate.py</code> หาพิกัด)</p>
+      <div style="overflow-x:auto">
+      <table class="msg-tbl">
+        <thead><tr><th style="width:55%">ชื่อกลุ่ม</th><th>แถว x</th><th>แถว y</th><th></th></tr></thead>
+        <tbody id="tgtBody"></tbody>
+      </table>
+      </div>
+
+      <hr>
+      <div class="flex" style="justify-content:space-between">
+        <h2 style="margin:0">📋 ตารางข้อความ</h2>
+        <button onclick="addRow()">+ เพิ่มแถว</button>
+      </div>
+      <p class="muted" style="margin:6px 0">ใส่ <b>time</b> สำหรับเวลาเดียว หรือ <b>start+end+every</b> สำหรับช่วงเวลา · ช่อง <b>กลุ่ม</b> เว้นว่าง = ส่งทุกกลุ่ม</p>
+      <div style="overflow-x:auto">
+      <table class="msg-tbl">
+        <thead><tr>
+          <th>time</th><th>start</th><th>end</th><th>every(นาที)</th><th>days</th><th style="width:20%">ข้อความ</th><th style="width:30%">รูป (path)</th><th>ลำดับส่ง</th><th>กลุ่ม</th><th></th>
+        </tr></thead>
+        <tbody id="msgBody"></tbody>
+      </table>
+      </div>
+
+      <div class="flex" style="margin-top:14px">
+        <button class="primary" onclick="saveConfig()">💾 บันทึก & ตั้งเวลาใหม่</button>
+        <input id="testText" placeholder="ข้อความทดสอบ (เว้นว่าง=ทดสอบระบบ)" style="flex:1;min-width:150px">
+        <div style="flex:1.4;min-width:200px;display:flex;flex-direction:column;gap:4px">
+          <textarea id="testImage" placeholder="พาธรูป (บรรทัดละ 1 รูป, ใส่หลายรูปได้)" style="min-height:76px;font-family:var(--mono);font-size:12px"></textarea>
+          <button type="button" class="browse" onclick="browseInto(document.getElementById('testImage'))">📁 เลือกรูป</button>
+        </div>
+        <select id="testOrder" style="min-width:130px">
+          <option value="image_first">รูป → ข้อความ</option>
+          <option value="text_first">ข้อความ → รูป</option>
+        </select>
+        <input id="testTargets" placeholder="กลุ่ม (เว้นว่าง=ทุกกลุ่ม)" style="min-width:140px">
+        <button onclick="sendNow()">📨 ส่งทดสอบทันที</button>
+      </div>
+    </div>
+
+    <!-- ขวา: log + ประวัติ (ยืดลงถึงล่างสุดของจอ) -->
+    <div class="card side">
+      <h2>🖥️ Log สด</h2>
+      <div id="log" class="log">กำลังโหลด...</div>
+      <h2 style="margin-top:16px">📨 ประวัติการส่งล่าสุด</h2>
+      <div style="flex:1;min-height:0;overflow:auto;margin-top:6px">
+        <table><thead><tr><th>เวลา</th><th>ผล</th><th>ข้อความ</th></tr></thead>
+        <tbody id="evtBody"><tr><td colspan="3" class="muted">ยังไม่มี</td></tr></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2600);}
+
+async function jget(u){return (await fetch(u)).json();}
+async function jpost(u,b){return (await fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify(b||{})})).json();}
+
+// ---------- config ----------
+function msgRow(m={}){
+  const tr=document.createElement("tr");
+  const f=(k,ph="",t="text")=>`<input data-k="${k}" type="${t}" value="${m[k]??''}" placeholder="${ph}">`;
+  const imgVal=Array.isArray(m.image)?m.image.join('\n'):(m.image??'');
+  const ord=m.order||'image_first';
+  const tgtVal=Array.isArray(m.targets)?m.targets.join(', '):(m.targets??'');
+  tr.innerHTML=`<td>${f('time','HH:MM')}</td><td>${f('start','HH:MM')}</td><td>${f('end','HH:MM')}</td>`+
+    `<td>${f('every_minutes','','number')}</td><td>${f('days','*')}</td>`+
+    `<td><textarea data-k="text" placeholder="ข้อความ">${m.text??''}</textarea></td>`+
+    `<td><textarea data-k="image" placeholder="พาธรูป (บรรทัดละ 1 รูป, ใส่หลายรูปได้)">${imgVal}</textarea>`+
+      `<button type="button" class="browse" onclick="browseInto(this.previousElementSibling)">📁 เลือกรูป</button></td>`+
+    `<td><select data-k="order">`+
+      `<option value="image_first"${ord==='image_first'?' selected':''}>รูป → ข้อความ</option>`+
+      `<option value="text_first"${ord==='text_first'?' selected':''}>ข้อความ → รูป</option>`+
+    `</select></td>`+
+    `<td><input data-k="targets" value="${tgtVal}" placeholder="ทุกกลุ่ม (หรือชื่อ, คั่น ,)"></td>`+
+    `<td><button class="del" onclick="this.closest('tr').remove()">✕</button></td>`;
+  return tr;
+}
+function addRow(m){$("msgBody").appendChild(msgRow(m||{days:"*"}));}
+
+// ---------- targets (กลุ่มเป้าหมาย) ----------
+function targetRow(t={}){
+  const tr=document.createElement("tr");
+  const cr=Array.isArray(t.chat_row)?t.chat_row:[240,140];
+  tr.innerHTML=`<td><input class="tname" value="${t.name??''}" placeholder="ชื่อกลุ่ม (ตรงหัวห้อง)"></td>`+
+    `<td><input class="tx" type="number" value="${cr[0]??240}"></td>`+
+    `<td><input class="ty" type="number" value="${cr[1]??140}"></td>`+
+    `<td><button class="del" onclick="this.closest('tr').remove()">✕</button></td>`;
+  return tr;
+}
+function addTarget(t){$("tgtBody").appendChild(targetRow(t||{}));}
+
+function gatherTargets(){
+  const out=[];
+  $("tgtBody").querySelectorAll("tr").forEach(tr=>{
+    const name=tr.querySelector(".tname").value.trim();
+    const x=parseInt(tr.querySelector(".tx").value||0);
+    const y=parseInt(tr.querySelector(".ty").value||0);
+    if(name) out.push({name, chat_row:[x,y]});
+  });
+  return out;
+}
+
+// เปิด File dialog ฝั่ง Windows แล้วเติมพาธลง textarea
+async function browseInto(ta){
+  const r=await jpost("/api/pick_images",{});
+  if(!r.ok){ toast("❌ "+(r.error||"เลือกไฟล์ไม่ได้")); return; }
+  if(!r.paths||!r.paths.length){ return; }
+  const cur=ta.value.trim();
+  ta.value=(cur?cur+"\n":"")+r.paths.join("\n");
+  toast("เพิ่ม "+r.paths.length+" รูป");
+}
+
+let LOADED_LINE={};   // เก็บ line config เดิมไว้ merge ตอนเซฟ (กันคีย์อื่นหาย)
+
+async function loadConfig(){
+  const c=await jget("/api/config");
+  LOADED_LINE=JSON.parse(JSON.stringify(c.line||{}));
+  $("tz").value=c.timezone||"Asia/Bangkok";
+  const L=c.line||{}, w=L.window||{}, co=L.coords||{}, d=L.delays||{};
+  $("winTitle").value=L.window_title||"LINE"; $("exePath").value=L.exe_path||"";
+  $("targetName").value=L.target_name||"";
+  $("wx").value=w.x??0;$("wy").value=w.y??0;$("ww").value=w.width??480;$("wh").value=w.height??900;
+  const cr=co.chat_row||[0,0], mb=co.message_box||[0,0];
+  $("crx").value=cr[0];$("cry").value=cr[1];$("mbx").value=mb[0];$("mby").value=mb[1];
+  $("dLaunch").value=d.after_launch??6;$("dFocus").value=d.after_focus??1;
+  $("dOpen").value=d.after_open_chat??1.2;$("dBox").value=d.after_click_box??0.5;$("dPaste").value=d.after_paste??0.4;
+  $("tgtBody").innerHTML="";
+  (L.targets||[]).forEach(addTarget);
+  if(!(L.targets||[]).length) addTarget({name:L.target_name||"",chat_row:co.chat_row||[240,140]});
+  $("msgBody").innerHTML="";
+  (c.messages||[]).forEach(addRow);
+  if(!(c.messages||[]).length) addRow({days:"*"});
+}
+
+function gatherConfig(){
+  const num=id=>parseFloat($(id).value||0);
+  const messages=[];
+  $("msgBody").querySelectorAll("tr").forEach(tr=>{
+    const o={};
+    tr.querySelectorAll("[data-k]").forEach(el=>{const v=el.value.trim();if(v)o[el.dataset.k]=v;});
+    if(o.every_minutes) o.every_minutes=parseInt(o.every_minutes);
+    if(o.image) o.image=o.image.split('\n').map(s=>s.trim()).filter(Boolean);
+    if(o.targets) o.targets=o.targets.split(',').map(s=>s.trim()).filter(Boolean);
+    if(o.targets && !o.targets.length) delete o.targets;
+    if(o.text || (o.image && o.image.length)) messages.push(o);
+  });
+  // merge บน line เดิม เพื่อคงคีย์ที่ฟอร์มไม่มี (window_class, chat_window_class, chat_input, attach_btn, close_chat_after)
+  const line=Object.assign({}, LOADED_LINE, {
+    window_title:$("winTitle").value.trim()||"LINE",
+    exe_path:$("exePath").value.trim(),
+    target_name:$("targetName").value.trim(),
+    targets:gatherTargets(),
+    window:{x:num("wx"),y:num("wy"),width:num("ww"),height:num("wh")},
+    coords:Object.assign({}, LOADED_LINE.coords, {chat_row:[num("crx"),num("cry")],message_box:[num("mbx"),num("mby")]}),
+    delays:{after_launch:num("dLaunch"),after_focus:num("dFocus"),
+      after_open_chat:num("dOpen"),after_click_box:num("dBox"),after_paste:num("dPaste")}
+  });
+  return {timezone:$("tz").value.trim()||"Asia/Bangkok", line, messages};
+}
+
+async function saveConfig(){
+  const r=await jpost("/api/config",gatherConfig());
+  toast(r.ok?("✅ "+r.message):("❌ "+r.error));
+}
+async function ctl(a){await jpost("/api/"+a);toast(a==="start"?"▶ เริ่มแล้ว":"■ หยุดแล้ว");refresh();}
+async function sendNow(){
+  const imgs=$("testImage").value.split('\n').map(s=>s.trim()).filter(Boolean);
+  const tgts=$("testTargets").value.split(',').map(s=>s.trim()).filter(Boolean);
+  const r=await jpost("/api/send_now",{text:$("testText").value,image:imgs,order:$("testOrder").value,targets:tgts});
+  toast("📨 "+r.message);
+}
+
+// ---------- status ----------
+async function refresh(){
+  const s=await jget("/api/status");
+  const on=s.running;
+  $("pill").className="pill "+(on?"on":"off");
+  $("pillTxt").textContent=on?"กำลังทำงาน":"หยุดอยู่";
+  $("btnStart").disabled=on; $("btnStop").disabled=!on;
+  $("sState").textContent=on?"กำลังทำงาน":"หยุดอยู่";
+  $("sNext").textContent=s.next_run||"—";
+  $("sToday").textContent=s.sent_today;
+  $("sLast").innerHTML=s.last?`<span class="badge ${s.last.status}">${s.last.status}</span> <span class="muted">${s.last.ts.slice(11)}</span>`:"—";
+  const eb=$("evtBody");
+  if(s.events&&s.events.length){
+    eb.innerHTML=s.events.map(e=>`<tr><td class="muted">${e.ts.slice(5)}</td>`+
+      `<td><span class="badge ${e.status}">${e.status}</span></td>`+
+      `<td>${(e.error?('⚠ '+e.error):e.text)||''}</td></tr>`).join("");
+  }else eb.innerHTML='<tr><td colspan="3" class="muted">ยังไม่มี</td></tr>';
+}
+async function refreshLog(){
+  const d=await jget("/api/logs");
+  const el=$("log");const atBottom=el.scrollHeight-el.scrollTop-el.clientHeight<40;
+  el.textContent=(d.lines||[]).join("\n")||"(ว่าง)";
+  if(atBottom) el.scrollTop=el.scrollHeight;
+}
+
+loadConfig();refresh();refreshLog();
+setInterval(refresh,3000);
+setInterval(refreshLog,5000);
+</script>
+</body>
+</html>

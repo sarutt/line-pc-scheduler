@@ -1,0 +1,27 @@
+# ===== ข้อมูลส่วนตัว/สำคัญ — ห้ามขึ้น GitHub =====
+# config.yaml มีเลขบัญชี/ข้อความ/ชื่อกลุ่มจริง (ใช้ config.example.yaml แทน)
+config.yaml
+# pic/ = รูปจริง
+pic/
+*.log
+line_sender.log
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.env
+
+# ===== IDE / OS =====
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ===== ทดสอบ/ชั่วคราว =====
+scratchpad/
+*.tmp
