@@ -58,6 +58,13 @@ class _INPUT(ctypes.Structure):
 _user32.SendInput.argtypes = (wintypes.UINT, ctypes.POINTER(_INPUT), ctypes.c_int)
 _user32.SendInput.restype = wintypes.UINT
 
+# สำหรับจับตำแหน่งคลิกเมาส์ (เครื่องมือชี้ตำแหน่งกลุ่ม)
+_VK_LBUTTON = 0x01
+_user32.GetAsyncKeyState.argtypes = (ctypes.c_int,)
+_user32.GetAsyncKeyState.restype = wintypes.SHORT
+_user32.GetCursorPos.argtypes = (ctypes.POINTER(wintypes.POINT),)
+_user32.GetCursorPos.restype = wintypes.BOOL
+
 
 def _mk(wVk=0, wScan=0, dwFlags=0):
     return _INPUT(type=_INPUT_KEYBOARD,
@@ -218,6 +225,27 @@ class LineController:
         rect = win.rectangle()
         log.debug("LINE window rect: %s", rect)
         return rect
+
+    def capture_click_position(self, timeout: float = 20.0):
+        """เครื่องมือชี้ตำแหน่ง: จัดหน้าต่าง LINE ให้ตำแหน่งคงที่ แล้วรอผู้ใช้คลิก 1 ครั้ง
+        คืนพิกัด [relx, rely] (เทียบมุมซ้ายบนหน้าต่าง) หรือ None ถ้าหมดเวลา
+        """
+        rect = self._prepare_window()
+        start = time.time()
+        # 1) รอให้ปล่อยปุ่มซ้ายก่อน (กันจับคลิกที่เพิ่งกดปุ่มบนหน้าเว็บ)
+        while _user32.GetAsyncKeyState(_VK_LBUTTON) & 0x8000:
+            if time.time() - start > timeout:
+                return None
+            time.sleep(0.01)
+        # 2) รอคลิกซ้ายครั้งใหม่
+        while not (_user32.GetAsyncKeyState(_VK_LBUTTON) & 0x8000):
+            if time.time() - start > timeout:
+                return None
+            time.sleep(0.01)
+        # อ่านพิกัดด้วย pyautogui.position() ให้อยู่ coordinate space เดียวกับตอนคลิกส่ง
+        # (GetCursorPos เป็น physical pixels อาจไม่ตรงกับ pyautogui เมื่อมี DPI scaling)
+        px, py = pyautogui.position()
+        return [int(px - rect.left), int(py - rect.top)]
 
     def _double_click_rel(self, rect, coord_key: str) -> None:
         self._double_click_coord(rect, self.coords[coord_key])

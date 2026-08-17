@@ -241,6 +241,23 @@ def api_targets():
     return jsonify({"targets": resolve_targets(_cfg, None)})
 
 
+@app.route("/api/pick_position", methods=["POST"])
+def api_pick_position():
+    """เครื่องมือชี้ตำแหน่ง: จัดหน้าต่าง LINE แล้วให้ผู้ใช้คลิกกลุ่ม -> คืนพิกัดแถว [x, y]"""
+    if not _send_lock.acquire(blocking=False):
+        return jsonify({"ok": False, "error": "กำลังส่งอยู่ ลองใหม่ภายหลัง"}), 409
+    try:
+        pos = _ctrl.capture_click_position(timeout=20)
+    except Exception as exc:  # noqa: BLE001
+        log.exception("ชี้ตำแหน่งล้มเหลว")
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        _send_lock.release()
+    if pos is None:
+        return jsonify({"ok": False, "error": "หมดเวลา (ไม่ได้คลิกใน LINE ภายใน 20 วิ)"})
+    return jsonify({"ok": True, "x": pos[0], "y": pos[1]})
+
+
 @app.route("/api/logs")
 def api_logs():
     if not os.path.exists(LOG_PATH):

@@ -150,10 +150,10 @@
         <h2 style="margin:0">👥 กลุ่มเป้าหมาย (ส่งได้หลายกลุ่ม)</h2>
         <button onclick="addTarget()">+ เพิ่มกลุ่ม</button>
       </div>
-      <p class="muted" style="margin:6px 0">ปักหมุดกลุ่มไว้บนสุดเรียงกัน แล้วใส่ <b>ชื่อกลุ่ม</b> + <b>พิกัดแถว [x, y]</b> (ใช้ <code>calibrate.py</code> หาพิกัด)</p>
+      <p class="muted" style="margin:6px 0">ปักหมุดกลุ่มไว้บนสุด → ใส่ <b>ชื่อกลุ่ม</b> แล้วกด <b>📍 ชี้ตำแหน่ง</b> → สลับไปคลิกที่กลุ่มนั้นในหน้าต่าง LINE ระบบจับพิกัดให้เอง (ไม่ต้องพิมพ์เลข)</p>
       <div style="overflow-x:auto">
       <table class="msg-tbl">
-        <thead><tr><th style="width:55%">ชื่อกลุ่ม</th><th>แถว x</th><th>แถว y</th><th></th></tr></thead>
+        <thead><tr><th style="width:48%">ชื่อกลุ่ม</th><th>แถว x</th><th>แถว y</th><th>เครื่องมือ</th><th></th></tr></thead>
         <tbody id="tgtBody"></tbody>
       </table>
       </div>
@@ -163,7 +163,8 @@
         <h2 style="margin:0">📋 ตารางข้อความ</h2>
         <button onclick="addRow()">+ เพิ่มแถว</button>
       </div>
-      <p class="muted" style="margin:6px 0">ใส่ <b>time</b> สำหรับเวลาเดียว หรือ <b>start+end+every</b> สำหรับช่วงเวลา · ช่อง <b>กลุ่ม</b> เว้นว่าง = ส่งทุกกลุ่ม</p>
+      <p class="muted" style="margin:6px 0">ใส่ <b>time</b> สำหรับเวลาเดียว หรือ <b>start+end+every</b> สำหรับช่วงเวลา · ช่อง <b>กลุ่ม</b> เว้นว่าง = ส่งทุกกลุ่ม<br>
+      💡 <b>ตั้งรอบส่งแยกแต่ละกลุ่ม</b>: สร้างหลายแถว แถวละ 1 กลุ่ม (ใส่ชื่อกลุ่มในช่อง "กลุ่ม") แล้วกำหนดเวลา/ช่วงของกลุ่มนั้นได้อิสระ</p>
       <div style="overflow-x:auto">
       <table class="msg-tbl">
         <thead><tr>
@@ -242,10 +243,25 @@ function targetRow(t={}){
   tr.innerHTML=`<td><input class="tname" value="${t.name??''}" placeholder="ชื่อกลุ่ม (ตรงหัวห้อง)"></td>`+
     `<td><input class="tx" type="number" value="${cr[0]??240}"></td>`+
     `<td><input class="ty" type="number" value="${cr[1]??140}"></td>`+
+    `<td><button type="button" class="browse" onclick="pickPosition(this)">📍 ชี้ตำแหน่ง</button></td>`+
     `<td><button class="del" onclick="this.closest('tr').remove()">✕</button></td>`;
   return tr;
 }
 function addTarget(t){$("tgtBody").appendChild(targetRow(t||{}));}
+
+// เครื่องมือชี้ตำแหน่ง: กดแล้วไปคลิกกลุ่มในหน้าต่าง LINE ระบบจับพิกัดให้
+async function pickPosition(btn){
+  const tr=btn.closest("tr");
+  btn.disabled=true; const old=btn.textContent; btn.textContent="รอคลิก...";
+  toast("👉 สลับไปที่หน้าต่าง LINE แล้ว 'คลิก' ที่กลุ่มเป้าหมาย (ภายใน 20 วิ)");
+  try{
+    const r=await jpost("/api/pick_position",{});
+    if(!r.ok){ toast("❌ "+(r.error||"ชี้ตำแหน่งไม่สำเร็จ")); return; }
+    tr.querySelector(".tx").value=r.x;
+    tr.querySelector(".ty").value=r.y;
+    toast("✅ ได้พิกัด ["+r.x+", "+r.y+"] — อย่าลืมกด 💾 บันทึก");
+  } finally { btn.disabled=false; btn.textContent=old; }
+}
 
 function gatherTargets(){
   const out=[];
