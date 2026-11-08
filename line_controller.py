@@ -436,11 +436,10 @@ class LineController:
             if _stopped():
                 log.info("หยุดกลางคัน (ก่อนส่งรูป) เข้า '%s'", title)
                 return
-            # แนบรูปทั้งหมดในครั้งเดียว -> Enter ส่งพร้อมกัน
+            # แนบรูปทั้งหมดในครั้งเดียว: การกด Open ใน File dialog (ใน _attach_images)
+            # = LINE ส่งรูปทันที จึง "ไม่" กด Enter ซ้ำ (Enter ซ้ำทำให้เกิดไฟล์เปล่า 0 Bytes)
             r = _focus_chat()
             self._attach_images(r, images)
-            _focus_chat()
-            kb.send_keys("{ENTER}")
             names = ", ".join(os.path.basename(p) for p in images)
             log.info("ส่งรูป %d รูปพร้อมกันเข้า '%s' (%s)", len(images), title, names)
             time.sleep(0.6)
